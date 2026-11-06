@@ -1,0 +1,36 @@
+# Convierte el HTML original en la plantilla única (lector + administrador).
+import re
+s=open('plantilla/original.html',encoding='utf-8').read()
+def rep(a,b,count=1):
+    global s
+    assert a in s, 'No encontrado: '+a[:60]
+    s=s.replace(a,b,count)
+
+ICON="%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='112' fill='%237a1f2b'/%3E%3Cpath d='M256 230C210 200 140 198 96 216V400C140 382 210 384 256 414C302 384 372 382 416 400V216C372 198 302 200 256 230Z' fill='%23f6f3ec'/%3E%3Cpath d='M256 230V414' stroke='%237a1f2b' stroke-width='10'/%3E%3Cpath d='M256 78V178M218 114H294' stroke='%23e0a458' stroke-width='18' stroke-linecap='round'/%3E%3C/svg%3E"
+s=re.sub(r'<link rel="icon" href="[^"]*">',lambda m:'<link rel="icon" href="data:image/svg+xml,'+ICON+'">',s)
+rep('<title>Ka Ngäbere</title>','<title>Ka Ngäbere</title>')
+rep('<meta charset="utf-8">','<meta charset="utf-8">\n<meta name="theme-color" content="#7a1f2b">')
+rep('<span>📖</span><h1>Ka Ngäbere</h1>','<img alt="" width="36" height="36" src="data:image/svg+xml,'+ICON+'" style="border-radius:8px"><h1>Ka Ngäbere${ADMIN?\'<span class="tag">ADMIN</span>\':\'\'}</h1>')
+s=re.sub(r"const DEMO=.*\n",lambda m:"const ADMIN=/*@ADMIN*/false;\nconst HIMNOS=/*@HIMNOS*/[];\nconst NA=!!window.AndroidBridge;\nlet V='home';\n",s)
+rep("let H=ld('h',null)||DEMO,","let H=ADMIN?(ld('h',null)||HIMNOS):HIMNOS,")
+rep("const save=()=>{sv('h',H);","const save=()=>{if(ADMIN)sv('h',H);")
+rep('<button id="adm">⚙ Admin</button>',"${ADMIN?'<button id=\"adm\">⚙ Admin</button>':''}")
+rep("$('#adm').onclick=admin;","if(ADMIN)$('#adm').onclick=admin;")
+rep("  cur=null;edit=null;\n","  cur=null;edit=null;V='home';\n")
+rep("const h=byN(n);if(!h)return home();cur=h;","const h=byN(n);if(!h)return home();cur=h;V='read';")
+rep("function admin(){\n  edit=null;","function admin(){\n  edit=null;V='admin';")
+rep("function form(h,isNew){\n  const old=h.n;","function form(h,isNew){\n  const old=h.n;V='form';")
+rep("try{document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen()}catch(e){}}",
+    "if(NA)AndroidBridge.pantalla(true);else try{document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen()}catch(e){}}")
+rep("try{document.fullscreenElement&&document.exitFullscreen()}catch(e){}}",
+    "if(NA)AndroidBridge.pantalla(false);else try{document.fullscreenElement&&document.exitFullscreen()}catch(e){}}")
+old=re.search(r"  \$\('#ex'\)\.onclick=.*\n",s).group(0)
+s=s.replace(old,"""  $('#ex').onclick=()=>{const txt=JSON.stringify(H,null,1),nm='ka-ngabere-respaldo-'+new Date().toISOString().slice(0,10)+'.json';
+    if(NA){AndroidBridge.guardar(nm,txt)}else{const b=new Blob([txt],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=nm;a.click()}};
+""")
+rep('<div class="bar"><button id="dm">Quitar himnos de prueba</button></div>','')
+s=re.sub(r"  \$\('#dm'\)\.onclick=.*\n",'',s)
+rep("// ---- Administración ----","//@ADMIN-START\n// ---- Administración ----")
+rep("applyS();home();","//@ADMIN-END\nwindow.atras=()=>{\n  if($('#pres').style.display==='flex'){closeP();return true}\n  if(V==='read'){home();return true}\n  if(ADMIN&&V==='form'){admin();return true}\n  if(ADMIN&&V==='admin'){home();return true}\n  return false};\napplyS();home();")
+open('plantilla/app.html','w',encoding='utf-8').write(s)
+print('plantilla ok')
